@@ -14,6 +14,10 @@ variable "vsphere_net" {
   type    = string
   default = "IBM Management Portable"
 }
+variable "vsphere_datacenter" {
+  type    = string
+  default = "Madrid05"
+}
 variable "vmware_ova_host" {
   type    = string
   default = "undercloud000.private.domain.name"
