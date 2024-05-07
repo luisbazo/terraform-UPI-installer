@@ -8,7 +8,7 @@ provider "vsphere" {
 
 # Data Sources
 data "vsphere_datacenter" "dc" {
-  name = "Madrid05"
+  name          = var.vsphere_datacenter
 }
 data "vsphere_resource_pool" "pool" {
   # If you haven't resource pool, put "Resources" after cluster name
