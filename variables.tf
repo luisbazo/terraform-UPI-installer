@@ -4,7 +4,7 @@ variable "vsphere_user" {
 }
 variable "vsphere_password" {
   type    = string
-  default = "Undercloud.2024"
+  default = "xxxxxxxxx"
 }
 variable "vsphere_server" {
   type    = string
