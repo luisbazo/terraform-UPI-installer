@@ -18,11 +18,22 @@ variable "vsphere_datacenter" {
   type    = string
   default = "Madrid05"
 }
+variable "vsphere_resource_pool" {
+  type    = string
+  default = "/Madrid05/host/CT05-undercloud/Resources/UnderCloudResourcePool"
+}
+variable "vsphere_data_store" {
+  type    = string
+  default = "datastore-example"
+}
+variable "vsphere_compute_cluster" {
+  type    = string
+  default = "CT05-undercloud"
+}
 variable "vmware_ova_host" {
   type    = string
   default = "undercloud000.private.domain.name"
 }
-
 variable "vsphere_folder" {
   type = string
   default = "UnderCloud/UPI"
