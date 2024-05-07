@@ -12,16 +12,16 @@ data "vsphere_datacenter" "dc" {
 }
 data "vsphere_resource_pool" "pool" {
   # If you haven't resource pool, put "Resources" after cluster name
-  name          = "/Madrid05/host/CT05-undercloud/Resources/UnderCloudResourcePool"
+  name          = var.vsphere_resource_pool
   datacenter_id = data.vsphere_datacenter.dc.id
 }
 data "vsphere_datastore" "datastore" {
-  name          = "DSW02SEL1563289-1"
+  name          = var.vsphere_datastore
   datacenter_id = "${data.vsphere_datacenter.dc.id}"
 }
 
 data "vsphere_compute_cluster" "cluster" {
-  name          = "CT05-undercloud"
+  name          = var.vsphere_compute_cluster
   datacenter_id = "${data.vsphere_datacenter.dc.id}"
 }
 
