@@ -11,7 +11,7 @@ cp ./openshift-install /usr/local/bin
 
 wget https://mirror.openshift.com/pub/openshift-v4/clients/ocp/latest/openshift-client-linux.tar.gz
 
-tar xvfz openshift-client-linux
+tar xvfz openshift-client-linux.tar.gz
 
 cp ./oc ./kubectl /usr/local/bin
 
