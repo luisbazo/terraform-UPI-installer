@@ -1,0 +1,69 @@
+additionalTrustBundlePolicy: Proxyonly
+apiVersion: v1
+baseDomain: private.domain.name
+compute:
+- architecture: amd64
+  hyperthreading: Enabled
+  name: worker
+  replicas: 0
+controlPlane:
+  architecture: amd64
+  hyperthreading: Enabled
+  name: master
+  replicas: 3
+metadata:
+  creationTimestamp: null
+  name: ocpinstall
+networking:
+  clusterNetwork:
+  - cidr: 10.128.0.0/14
+    hostPrefix: 23
+  machineNetwork:
+  - cidr: 10.118.144.160/27
+  networkType: OVNKubernetes
+  serviceNetwork:
+  - 172.30.0.0/16
+platform:
+  vsphere:
+    cluster: CT05-undercloud
+    datacenter: Madrid05
+    defaultDatastore: DSW02SEL1563289-1
+    password: Undercloud.2024
+    username: administrator@vsphere.local
+    vCenter: vcenter.private.domain.name
+publish: External
+fips: true 
+pullSecret: '{"auths": {"bastion.private.domain.name:8443": { "auth": "aW5pdDpwYXNzdzByZA==", "email": "you@example.com"}}}'
+sshKey: 'ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAABgQCoGcw40znq9O4bXE/Kw3hEilCht5sbnHRBNlcz+LvkrAuez1VNRW+G0uPHXrjJXUROnQF1HsHCZSbetJKTJepANSl6AUTLX2pqBuFcTdezLpkWOP23O+RU2+BFM3WyfthoZp1R3N3JIKVB8hrz06hYMM9yvA6x5uikRMyZ4qXPHTsXfgr7yi3ebeZ2vScdxZKKHGqHTQhWX13meXp63Hl2V1Pa7PjSVQIAZYU+v+UtI1sNJQaToPkICpHEAZwNCjsXPLeL5lMyOCSNr86t8AogMj/quUluyK0PozhaZJf8bCstn+YtgbaAPvBYQvVA51DBQN1VIxlKbRIGKL633kpvGR6nSx8rjKOrukH3a+zl/liKHjLSj7hUIMzOAfnvyV+DmuKJQTOKL8z0qpAke5IYem0Oi4lZAqPK6ixvpOj75spP/Kyt9C/fwT5hibw+B1O+B2dZ5sNPwX+zNJATvpNO/OADngovucvLkrd4WCc1ltqJRD7z9XENFnvUMwQI9YE= root@bastion.private.domain.name'
+additionalTrustBundle: |
+    -----BEGIN CERTIFICATE-----
+    MIID2DCCAsCgAwIBAgIUHZI4cIyfj8hYXPQtBid91RZwfocwDQYJKoZIhvcNAQEL
+    BQAwdTELMAkGA1UEBhMCVVMxCzAJBgNVBAgMAlZBMREwDwYDVQQHDAhOZXcgWW9y
+    azENMAsGA1UECgwEUXVheTERMA8GA1UECwwIRGl2aXNpb24xJDAiBgNVBAMMG2Jh
+    c3Rpb24ucHJpdmF0ZS5kb21haW4ubmFtZTAeFw0yNDAzMTcyMjM0NTdaFw0yNzAx
+    MDUyMjM0NTdaMHUxCzAJBgNVBAYTAlVTMQswCQYDVQQIDAJWQTERMA8GA1UEBwwI
+    TmV3IFlvcmsxDTALBgNVBAoMBFF1YXkxETAPBgNVBAsMCERpdmlzaW9uMSQwIgYD
+    VQQDDBtiYXN0aW9uLnByaXZhdGUuZG9tYWluLm5hbWUwggEiMA0GCSqGSIb3DQEB
+    AQUAA4IBDwAwggEKAoIBAQCuvXhac+QYXFbde09K8v/E5EbxSnOsXU4CUjOS8aGX
+    NY4VW6B5cIqeO6jpEXGapa8umSj5tiLKW29XItXNuGqv2wlWx22dILkDDOKoL5QR
+    ubJLE2DonutzXCV54zhdJSN/0y0n0oND2kT+xPdCWViZnkg/GD2LwVIVdV8jzBzV
+    H7TeL3yxghf5dfmAJ5SQ9slr18I5Xaqevwu7pyTcO82ntMuJrvmVNtjGYg28y/d1
+    n1lcKjfoNhUgb48dZYoa+MrK0v8oJbThkGuUlJtsYS6/AuuarORt/UGFybiqFQX5
+    bVPvQ0PgltkEO7WTdAKHlSz6q/iiXoMzs0qQU51g8aVRAgMBAAGjYDBeMAsGA1Ud
+    DwQEAwIC5DATBgNVHSUEDDAKBggrBgEFBQcDATAmBgNVHREEHzAdghtiYXN0aW9u
+    LnByaXZhdGUuZG9tYWluLm5hbWUwEgYDVR0TAQH/BAgwBgEB/wIBATANBgkqhkiG
+    9w0BAQsFAAOCAQEAZtj7Y2x6U0LixIUPlBcg4yjDr3z7+kGRaY71cguHrzcZzW80
+    DAAeuFOvnigTDwlIhXojk4eLyAqy5wvKQUPxY3d8jMls8OTpUqY1HycxIn8m+Bcs
+    256cn/EtUUfubUe/wESqYE5n+Unk72tgvvxaPXoy9qsBPSjg21vN8iSUPP2DXPsp
+    FG4RRmz+65HkbYAj1nKxsMgE8ftg3d7Zu8fy/jAwdQC/F8RCv89EY+8pfdXs9/Df
+    J0kwwFiZCDN7aU8EptuGlmIIXIyuGmhizuF10lGUHNgCAj49H0t5zL6mhHF0BQaQ
+    D9RENeVAnXt2iFppp0RYFXo1HY/Ctpa37PfnWA==
+    -----END CERTIFICATE-----
+imageContentSources:
+- mirrors:
+  - bastion.private.domain.name:8443/openshift/release
+  source: quay.io/openshift-release-dev/ocp-v4.0-art-dev
+- mirrors:
+  - bastion.private.domain.name:8443/openshift/release-images
+  source: quay.io/openshift-release-dev/ocp-release
+

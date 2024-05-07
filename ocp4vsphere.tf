@@ -1,0 +1,260 @@
+provider "vsphere" {
+  user           = var.vsphere_user
+  password       = var.vsphere_password
+  vsphere_server = var.vsphere_server
+  allow_unverified_ssl = true
+}
+
+
+# Data Sources
+data "vsphere_datacenter" "dc" {
+  name = "Madrid05"
+}
+data "vsphere_resource_pool" "pool" {
+  # If you haven't resource pool, put "Resources" after cluster name
+  name          = "/Madrid05/host/CT05-undercloud/Resources/UnderCloudResourcePool"
+  datacenter_id = data.vsphere_datacenter.dc.id
+}
+data "vsphere_datastore" "datastore" {
+  name          = "DSW02SEL1563289-1"
+  datacenter_id = "${data.vsphere_datacenter.dc.id}"
+}
+
+data "vsphere_compute_cluster" "cluster" {
+  name          = "CT05-undercloud"
+  datacenter_id = "${data.vsphere_datacenter.dc.id}"
+}
+
+data "vsphere_network" "network" {
+  name = var.vsphere_net
+  datacenter_id = "${data.vsphere_datacenter.dc.id}"
+}
+data "vsphere_host" "host" {
+  name          = var.vmware_ova_host
+  datacenter_id = data.vsphere_datacenter.dc.id
+}
+data "vsphere_virtual_machine" "coreostemplate" {
+  depends_on    = [vsphere_virtual_machine.coreostemplate]
+  name          = "coreostemplate"
+  datacenter_id = data.vsphere_datacenter.dc.id
+}
+
+ ###coreostemplate###
+ resource "vsphere_virtual_machine" "coreostemplate" {
+   name             = "coreostemplate"
+   resource_pool_id = data.vsphere_resource_pool.pool.id
+   datastore_id     = data.vsphere_datastore.datastore.id
+   datacenter_id    = data.vsphere_datacenter.dc.id
+   host_system_id   = data.vsphere_host.host.id
+   folder 	    = "${var.vsphere_folder}"
+   num_cpus = 2
+   memory   = 4096
+   guest_id = "coreos64Guest"
+   wait_for_guest_net_timeout  = 0
+   wait_for_guest_ip_timeout   = 0
+   wait_for_guest_net_routable = false
+   enable_disk_uuid  = true
+   network_interface {
+     network_id = data.vsphere_network.network.id
+   }
+   ovf_deploy {
+     #remote_ovf_url       = "https://mirror.openshift.com/pub/openshift-v4/dependencies/rhcos/4.14/latest/rhcos-vmware.x86_64.ova"
+     local_ovf_path       = "rhcos-vmware.x86_64.ova"
+     disk_provisioning    = "thin"
+     ovf_network_map = {
+       "VM Network" = data.vsphere_network.network.id
+   }
+  }
+  provisioner "local-exec" {
+    command = "govc vm.power -off=true coreostemplate && sleep 10"
+
+    environment = {
+      GOVC_URL      = var.vsphere_server
+      GOVC_USERNAME = var.vsphere_user
+      GOVC_PASSWORD = var.vsphere_password
+      GOVC_INSECURE = "true"
+    }
+  }
+ }
+
+data "local_file" "bootstrap_vm_ignition" {
+  filename   = "${var.generationDir}/bootstrap-append.ign"
+}
+
+resource "vsphere_virtual_machine" "bootstrapVM" {
+  name             = "${var.cluster_name}-bootstrap"
+  resource_pool_id = data.vsphere_compute_cluster.cluster.resource_pool_id
+  datastore_id     = data.vsphere_datastore.datastore.id
+
+  num_cpus         = var.bootstrap_cpu_count
+  memory           = var.bootstrap_memory_size
+  guest_id         = "coreos64Guest"
+  enable_disk_uuid = "true"
+  folder           = "${var.vsphere_folder}"
+
+  wait_for_guest_net_timeout  = 0
+  wait_for_guest_net_routable = false
+
+  scsi_type = data.vsphere_virtual_machine.coreostemplate.scsi_type
+
+  network_interface {
+    network_id   = data.vsphere_network.network.id
+    adapter_type = data.vsphere_virtual_machine.coreostemplate.network_interface_types[0]
+  }
+
+  disk {
+    label            = "disk0"
+    size             = var.bootstrap_disk_size
+    eagerly_scrub    = data.vsphere_virtual_machine.coreostemplate.disks.0.eagerly_scrub
+    thin_provisioned = true
+  }
+
+  clone {
+    template_uuid = data.vsphere_virtual_machine.coreostemplate.id
+  }
+
+  extra_config = {
+    "guestinfo.ignition.config.data"           = base64encode(data.local_file.bootstrap_vm_ignition.content)
+    "guestinfo.ignition.config.data.encoding"  = "base64"
+    "guestinfo.hostname"                       = "${var.cluster_name}-bootstrap"
+    "guestinfo.afterburn.initrd.network-kargs" = lookup(var.bootstrap_vm_network_config, "type") != "dhcp" ? "ip=${lookup(var.bootstrap_vm_network_config, "ip")}:${lookup(var.bootstrap_vm_network_config, "server_id")}:${lookup(var.bootstrap_vm_network_config, "gateway")}:${lookup(var.bootstrap_vm_network_config, "subnet")}:${var.cluster_name}-bootstrap:${lookup(var.bootstrap_vm_network_config, "interface")}:off nameserver=${lookup(var.bootstrap_vm_network_config, "dns")}" : "ip=::::${var.cluster_name}-bootstrap:ens192:on"
+  }
+}
+####Masters###
+data "local_file" "master_vm_ignition" {
+  filename   = "${var.generationDir}/master.ign"
+}
+resource "vsphere_virtual_machine" "masterVMs" {
+  depends_on = [vsphere_virtual_machine.bootstrapVM]
+  count      = var.master_count
+
+  name             = "${var.cluster_name}-master0${count.index+1}"
+  resource_pool_id = data.vsphere_compute_cluster.cluster.resource_pool_id
+  datastore_id     = data.vsphere_datastore.datastore.id
+  folder           = "${var.vsphere_folder}"
+  num_cpus         = var.master_cpu_count
+  memory           = var.master_memory_size
+  guest_id         = "coreos64Guest"
+  enable_disk_uuid = "true"
+
+  wait_for_guest_net_timeout  = 0
+  wait_for_guest_net_routable = false
+
+  scsi_type = data.vsphere_virtual_machine.coreostemplate.scsi_type
+
+  network_interface {
+    network_id   = data.vsphere_network.network.id
+    adapter_type = data.vsphere_virtual_machine.coreostemplate.network_interface_types[0]
+  }
+
+  disk {
+    label            = "disk0"
+    size             = var.master_disk_size
+    eagerly_scrub    = data.vsphere_virtual_machine.coreostemplate.disks.0.eagerly_scrub
+    thin_provisioned = true
+  }
+
+  clone {
+    template_uuid = data.vsphere_virtual_machine.coreostemplate.id
+  }
+
+  extra_config = {
+    "guestinfo.ignition.config.data"           = base64encode(data.local_file.master_vm_ignition.content)
+    "guestinfo.ignition.config.data.encoding"  = "base64"
+    "guestinfo.hostname"                       = "${var.cluster_name}-master${count.index+1}"
+    "guestinfo.afterburn.initrd.network-kargs" = lookup(var.master_network_config, "master_${count.index}_type") != "dhcp" ? "ip=${lookup(var.master_network_config, "master_${count.index}_ip")}:${lookup(var.master_network_config, "master_${count.index}_server_id")}:${lookup(var.master_network_config, "master_${count.index}_gateway")}:${lookup(var.master_network_config, "master_${count.index}_subnet")}:${var.cluster_name}-master${count.index+1}:${lookup(var.master_network_config, "master_${count.index}_interface")}:off nameserver=${lookup(var.bootstrap_vm_network_config, "dns")}" : "ip=::::${var.cluster_name}-master${count.index+1}:ens192:on"
+  }
+}
+
+
+####Workers###
+data "local_file" "worker_vm_ignition" {
+  filename   = "${var.generationDir}/worker.ign"
+}
+resource "vsphere_virtual_machine" "workerVMs" {
+  depends_on = [vsphere_virtual_machine.masterVMs]
+  count      = var.worker_count
+
+  name             = "${var.cluster_name}-worker0${count.index+1}"
+  resource_pool_id = data.vsphere_compute_cluster.cluster.resource_pool_id
+  datastore_id     = data.vsphere_datastore.datastore.id
+  folder           = "${var.vsphere_folder}"
+  num_cpus         = var.worker_cpu_count
+  memory           = var.worker_memory_size
+  guest_id         = "coreos64Guest"
+  enable_disk_uuid = "true"
+
+  wait_for_guest_net_timeout  = 0
+  wait_for_guest_net_routable = false
+
+  scsi_type = data.vsphere_virtual_machine.coreostemplate.scsi_type
+
+  network_interface {
+    network_id   = data.vsphere_network.network.id
+    adapter_type = data.vsphere_virtual_machine.coreostemplate.network_interface_types[0]
+  }
+
+  disk {
+    label            = "disk0"
+    size             = var.worker_disk_size
+    eagerly_scrub    = data.vsphere_virtual_machine.coreostemplate.disks.0.eagerly_scrub
+    thin_provisioned = true
+  }
+
+  clone {
+    template_uuid = data.vsphere_virtual_machine.coreostemplate.id
+  }
+
+  extra_config = {
+    "guestinfo.ignition.config.data"           = base64encode(data.local_file.worker_vm_ignition.content)
+    "guestinfo.ignition.config.data.encoding"  = "base64"
+    "guestinfo.hostname"                       = "${var.cluster_name}-worker${count.index+1}"
+    "guestinfo.afterburn.initrd.network-kargs" = lookup(var.worker_network_config, "worker_${count.index}_type") != "dhcp" ? "ip=${lookup(var.worker_network_config, "worker_${count.index}_ip")}:${lookup(var.worker_network_config, "worker_${count.index}_server_id")}:${lookup(var.worker_network_config, "worker_${count.index}_gateway")}:${lookup(var.worker_network_config, "worker_${count.index}_subnet")}:${var.cluster_name}-worker${count.index+1}:${lookup(var.worker_network_config, "worker_${count.index}_interface")}:off nameserver=${lookup(var.bootstrap_vm_network_config, "dns")}" : "ip=::::${var.cluster_name}-worker${count.index+1}:ens192:on"
+  }
+}
+
+####Infra###
+data "local_file" "infra_vm_ignition" {
+  filename   = "${var.generationDir}/worker.ign"
+}
+resource "vsphere_virtual_machine" "infraVMs" {
+  depends_on = [vsphere_virtual_machine.masterVMs]
+  count      = var.infra_count
+
+  name             = "${var.cluster_name}-infra0${count.index+1}"
+  resource_pool_id = data.vsphere_compute_cluster.cluster.resource_pool_id
+  datastore_id     = data.vsphere_datastore.datastore.id
+  folder           = "${var.vsphere_folder}"
+  num_cpus         = var.infra_cpu_count
+  memory           = var.infra_memory_size
+  guest_id         = "coreos64Guest"
+  enable_disk_uuid = "true"
+
+  wait_for_guest_net_timeout  = 0
+  wait_for_guest_net_routable = false
+
+  scsi_type = data.vsphere_virtual_machine.coreostemplate.scsi_type
+
+  network_interface {
+    network_id   = data.vsphere_network.network.id
+    adapter_type = data.vsphere_virtual_machine.coreostemplate.network_interface_types[0]
+  }
+
+  disk {
+    label            = "disk0"
+    size             = var.infra_disk_size
+    eagerly_scrub    = data.vsphere_virtual_machine.coreostemplate.disks.0.eagerly_scrub
+    thin_provisioned = true
+  }
+
+  clone {
+    template_uuid = data.vsphere_virtual_machine.coreostemplate.id
+  }
+
+  extra_config = {
+    "guestinfo.ignition.config.data"           = base64encode(data.local_file.infra_vm_ignition.content)
+    "guestinfo.ignition.config.data.encoding"  = "base64"
+    "guestinfo.hostname"                       = "${var.cluster_name}-infra${count.index+1}"
+    "guestinfo.afterburn.initrd.network-kargs" = lookup(var.infra_network_config, "infra_${count.index}_type") != "dhcp" ? "ip=${lookup(var.infra_network_config, "infra_${count.index}_ip")}:${lookup(var.infra_network_config, "infra_${count.index}_server_id")}:${lookup(var.infra_network_config, "infra_${count.index}_gateway")}:${lookup(var.infra_network_config, "infra_${count.index}_subnet")}:${var.cluster_name}-infra${count.index+1}:${lookup(var.infra_network_config, "infra_${count.index}_interface")}:off nameserver=${lookup(var.bootstrap_vm_network_config, "dns")}" : "ip=::::${var.cluster_name}-infra${count.index+1}:ens192:on"
+  }
+}
