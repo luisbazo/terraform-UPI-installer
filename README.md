@@ -1,6 +1,6 @@
 # OCP UPI Installer with terraform in vsphere 
 
-Make sure your environment has a DNS and loadbalancer configured to work with masters and workers before attempting the installation
+Make sure your environment has a DNS and loadbalancer configured to work with masters and workers before attempting the installation. Also a NTP server should be available to pass to the configuration files
 
 Download and install the openshift clients
 
